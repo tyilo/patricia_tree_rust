@@ -51,9 +51,9 @@ impl<V> PatriciaTreeMap<V> {
     }
 
     #[duplicate(
-      method                     reference(type);
-      [find_insertion_point]     [& type];
-      [find_insertion_point_mut] [&mut type];
+      method                     reference(type) as_ref(v);
+      [find_insertion_point]     [& type]        [v.as_ref()];
+      [find_insertion_point_mut] [&mut type]     [v.as_mut()];
     )]
     #[allow(clippy::needless_arbitrary_self_type)]
     fn method(self: reference([Self]), key: u64) -> Option<reference([Node<V>])> {
@@ -92,10 +92,7 @@ impl<V> PatriciaTreeMap<V> {
             }
         }
 
-        match reference([self.root]) {
-            None => None,
-            Some(root) => Some(aux(root, key)),
-        }
+        as_ref([self.root]).map(|r| aux(r, key))
     }
 
     pub fn get(&self, key: u64) -> Option<&V> {
