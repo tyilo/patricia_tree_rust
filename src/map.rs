@@ -59,12 +59,10 @@ impl<V> PatriciaTreeMap<V> {
     #[allow(clippy::borrowed_box)]
     fn method(self: reference([Self]), key: u64) -> Option<reference([Box<Node<V>>])> {
         fn aux<V>(node: reference([Box<Node<V>>]), key: u64) -> reference([Box<Node<V>>]) {
-            if let Node::Leaf { .. } = **node {
-                return node;
-            }
-
             match reference([**node]) {
-                Node::Leaf { .. } => unsafe { unreachable_unchecked() },
+                Node::Leaf { .. } => {
+                    return node;
+                }
                 Node::Internal {
                     key_prefix,
                     branch_bit,
@@ -154,25 +152,19 @@ impl<V> PatriciaTreeMap<V> {
             let node = tree.find_insertion_point_mut(key).unwrap();
 
             match node.as_mut() {
-                Node::Leaf { key: k, .. } => {
+                Node::Leaf { key: k, value: v } => {
                     if k != &key {
                         let diff = *k ^ key;
-                        return do_insert(diff, key, value, node);
+                        do_insert(diff, key, value, node)
+                    } else {
+                        swap(v, &mut value);
+                        Some(value)
                     }
                 }
                 Node::Internal { key_prefix, .. } => {
                     let diff = *key_prefix ^ key;
-                    return do_insert(diff, key, value, node);
+                    do_insert(diff, key, value, node)
                 }
-                Node::_TemporaryUnused => unsafe { unreachable_unchecked() },
-            };
-
-            match node.as_mut() {
-                Node::Leaf { value: v, .. } => {
-                    swap(v, &mut value);
-                    Some(value)
-                }
-                Node::Internal { .. } => unsafe { unreachable_unchecked() },
                 Node::_TemporaryUnused => unsafe { unreachable_unchecked() },
             }
         }
