@@ -1,6 +1,6 @@
 use duplicate::duplicate;
 use std::hint::unreachable_unchecked;
-use std::mem::swap;
+use std::mem;
 
 #[derive(Debug)]
 enum Node<V> {
@@ -59,27 +59,16 @@ impl<V> PatriciaTreeMap<V> {
     fn method(self: reference([Self]), key: u64) -> Option<reference([Node<V>])> {
         fn aux<V>(node: reference([Node<V>]), key: u64) -> reference([Node<V>]) {
             match node {
-                Node::Leaf { .. } => {
-                    return node;
-                }
+                Node::Leaf { .. } => node,
                 Node::Internal {
                     key_prefix,
                     branch_bit,
                     ..
-                } => {
-                    if *key_prefix != PatriciaTreeMap::<V>::get_prefix(key, *branch_bit) {
-                        return node;
-                    }
-                }
-                Node::_TemporaryUnused => unsafe { unreachable_unchecked() },
-            }
-
-            match node {
-                Node::Leaf { .. } => unsafe { unreachable_unchecked() },
+                } if *key_prefix != PatriciaTreeMap::<V>::get_prefix(key, *branch_bit) => node,
                 Node::Internal {
                     branch_bit,
-                    left,
                     right,
+                    left,
                     ..
                 } => {
                     if PatriciaTreeMap::<V>::is_left(key, *branch_bit) {
@@ -97,13 +86,7 @@ impl<V> PatriciaTreeMap<V> {
 
     pub fn get(&self, key: u64) -> Option<&V> {
         match self.find_insertion_point(key) {
-            Some(Node::Leaf { key: k, value: v }) => {
-                if k == &key {
-                    Some(v)
-                } else {
-                    None
-                }
-            }
+            Some(Node::Leaf { key: k, value: v }) if k == &key => Some(v),
             _ => None,
         }
     }
@@ -113,12 +96,7 @@ impl<V> PatriciaTreeMap<V> {
     }
 
     pub fn insert(&mut self, key: u64, value: V) -> Option<V> {
-        fn aux<V>(tree: &mut PatriciaTreeMap<V>, key: u64, mut value: V) -> Option<V> {
-            if tree.root.is_none() {
-                tree.root = Some(Box::new(Node::Leaf { key, value }));
-                return None;
-            }
-
+        fn aux<V>(tree: &mut PatriciaTreeMap<V>, key: u64, value: V) -> Option<V> {
             fn do_insert<V>(diff: u64, key: u64, value: V, node: &mut Node<V>) -> Option<V> {
                 let branch_bit = diff.trailing_zeros() as u8;
                 let key_prefix = PatriciaTreeMap::<V>::get_prefix(key, branch_bit);
@@ -126,10 +104,10 @@ impl<V> PatriciaTreeMap<V> {
                 let mut left = Node::Leaf { key, value };
                 let mut right = Node::_TemporaryUnused;
 
-                swap(&mut right, node);
+                mem::swap(&mut right, node);
 
                 if !PatriciaTreeMap::<V>::is_left(key, branch_bit) {
-                    swap(&mut left, &mut right);
+                    mem::swap(&mut left, &mut right);
                 }
 
                 *node = Node::Internal {
@@ -142,23 +120,27 @@ impl<V> PatriciaTreeMap<V> {
                 None
             }
 
-            let node = tree.find_insertion_point_mut(key).unwrap();
-
+            let node = tree.find_insertion_point_mut(key);
             match node {
-                Node::Leaf { key: k, value: v } => {
-                    if k != &key {
-                        let diff = *k ^ key;
-                        do_insert(diff, key, value, node)
-                    } else {
-                        swap(v, &mut value);
-                        Some(value)
+                None => {
+                    tree.root = Some(Box::new(Node::Leaf { key, value }));
+                    None
+                }
+                Some(node) => match node {
+                    Node::Leaf { key: k, value: v } => {
+                        if k != &key {
+                            let diff = *k ^ key;
+                            do_insert(diff, key, value, node)
+                        } else {
+                            Some(mem::replace(v, value))
+                        }
                     }
-                }
-                Node::Internal { key_prefix, .. } => {
-                    let diff = *key_prefix ^ key;
-                    do_insert(diff, key, value, node)
-                }
-                Node::_TemporaryUnused => unsafe { unreachable_unchecked() },
+                    Node::Internal { key_prefix, .. } => {
+                        let diff = *key_prefix ^ key;
+                        do_insert(diff, key, value, node)
+                    }
+                    Node::_TemporaryUnused => unsafe { unreachable_unchecked() },
+                },
             }
         }
 
