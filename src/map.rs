@@ -101,14 +101,14 @@ impl<V> PatriciaTreeMap<V> {
                 let branch_bit = diff.trailing_zeros() as u8;
                 let key_prefix = PatriciaTreeMap::<V>::get_prefix(key, branch_bit);
 
-                let mut left = Node::Leaf { key, value };
-                let mut right = Node::_TemporaryUnused;
+                let leaf = Node::Leaf { key, value };
+                let old_node = mem::replace(node, Node::_TemporaryUnused);
 
-                mem::swap(&mut right, node);
-
-                if !PatriciaTreeMap::<V>::is_left(key, branch_bit) {
-                    mem::swap(&mut left, &mut right);
-                }
+                let (left, right) = if PatriciaTreeMap::<V>::is_left(key, branch_bit) {
+                    (leaf, old_node)
+                } else {
+                    (old_node, leaf)
+                };
 
                 *node = Node::Internal {
                     branch_bit,
