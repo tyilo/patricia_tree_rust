@@ -56,10 +56,9 @@ impl<V> PatriciaTreeMap<V> {
       [find_insertion_point_mut] [&mut type];
     )]
     #[allow(clippy::needless_arbitrary_self_type)]
-    #[allow(clippy::borrowed_box)]
-    fn method(self: reference([Self]), key: u64) -> Option<reference([Box<Node<V>>])> {
-        fn aux<V>(node: reference([Box<Node<V>>]), key: u64) -> reference([Box<Node<V>>]) {
-            match reference([**node]) {
+    fn method(self: reference([Self]), key: u64) -> Option<reference([Node<V>])> {
+        fn aux<V>(node: reference([Node<V>]), key: u64) -> reference([Node<V>]) {
+            match node {
                 Node::Leaf { .. } => {
                     return node;
                 }
@@ -75,7 +74,7 @@ impl<V> PatriciaTreeMap<V> {
                 Node::_TemporaryUnused => unsafe { unreachable_unchecked() },
             }
 
-            match reference([**node]) {
+            match node {
                 Node::Leaf { .. } => unsafe { unreachable_unchecked() },
                 Node::Internal {
                     branch_bit,
@@ -101,17 +100,14 @@ impl<V> PatriciaTreeMap<V> {
 
     pub fn get(&self, key: u64) -> Option<&V> {
         match self.find_insertion_point(key) {
-            None => None,
-            Some(x) => match x.as_ref() {
-                Node::Leaf { key: k, value: v } => {
-                    if k == &key {
-                        Some(v)
-                    } else {
-                        None
-                    }
+            Some(Node::Leaf { key: k, value: v }) => {
+                if k == &key {
+                    Some(v)
+                } else {
+                    None
                 }
-                _ => None,
-            },
+            }
+            _ => None,
         }
     }
 
@@ -126,12 +122,12 @@ impl<V> PatriciaTreeMap<V> {
                 return None;
             }
 
-            fn do_insert<V>(diff: u64, key: u64, value: V, node: &mut Box<Node<V>>) -> Option<V> {
+            fn do_insert<V>(diff: u64, key: u64, value: V, node: &mut Node<V>) -> Option<V> {
                 let branch_bit = diff.trailing_zeros() as u8;
                 let key_prefix = PatriciaTreeMap::<V>::get_prefix(key, branch_bit);
 
-                let mut left = Box::new(Node::Leaf { key, value });
-                let mut right = Box::new(Node::_TemporaryUnused);
+                let mut left = Node::Leaf { key, value };
+                let mut right = Node::_TemporaryUnused;
 
                 swap(&mut right, node);
 
@@ -139,19 +135,19 @@ impl<V> PatriciaTreeMap<V> {
                     swap(&mut left, &mut right);
                 }
 
-                *node = Box::new(Node::Internal {
+                *node = Node::Internal {
                     branch_bit,
                     key_prefix,
-                    left,
-                    right,
-                });
+                    left: Box::new(left),
+                    right: Box::new(right),
+                };
 
                 None
             }
 
             let node = tree.find_insertion_point_mut(key).unwrap();
 
-            match node.as_mut() {
+            match node {
                 Node::Leaf { key: k, value: v } => {
                     if k != &key {
                         let diff = *k ^ key;
