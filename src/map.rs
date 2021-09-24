@@ -1,5 +1,5 @@
 use duplicate::duplicate;
-use std::hint::unreachable_unchecked;
+use replace_with::replace_with_or_abort;
 use std::mem;
 
 #[derive(Debug)]
@@ -14,9 +14,6 @@ enum Node<V> {
         left: Box<Node<V>>,
         right: Box<Node<V>>,
     },
-
-    // Only used temporarily during insertion
-    _TemporaryUnused,
 }
 
 #[derive(Debug)]
@@ -77,7 +74,6 @@ impl<V> PatriciaTreeMap<V> {
                         aux(right, key)
                     }
                 }
-                Node::_TemporaryUnused => unsafe { unreachable_unchecked() },
             }
         }
 
@@ -102,20 +98,20 @@ impl<V> PatriciaTreeMap<V> {
                 let key_prefix = PatriciaTreeMap::<V>::get_prefix(key, branch_bit);
 
                 let leaf = Node::Leaf { key, value };
-                let old_node = mem::replace(node, Node::_TemporaryUnused);
+                replace_with_or_abort(node, |old_node| {
+                    let (left, right) = if PatriciaTreeMap::<V>::is_left(key, branch_bit) {
+                        (leaf, old_node)
+                    } else {
+                        (old_node, leaf)
+                    };
 
-                let (left, right) = if PatriciaTreeMap::<V>::is_left(key, branch_bit) {
-                    (leaf, old_node)
-                } else {
-                    (old_node, leaf)
-                };
-
-                *node = Node::Internal {
-                    branch_bit,
-                    key_prefix,
-                    left: Box::new(left),
-                    right: Box::new(right),
-                };
+                    Node::Internal {
+                        branch_bit,
+                        key_prefix,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    }
+                });
 
                 None
             }
@@ -139,7 +135,6 @@ impl<V> PatriciaTreeMap<V> {
                         let diff = *key_prefix ^ key;
                         do_insert(diff, key, value, node)
                     }
-                    Node::_TemporaryUnused => unsafe { unreachable_unchecked() },
                 },
             }
         }
