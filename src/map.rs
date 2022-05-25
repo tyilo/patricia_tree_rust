@@ -1,4 +1,4 @@
-use duplicate::duplicate;
+use duplicate::duplicate_item;
 use replace_with::replace_with_or_abort;
 use std::mem;
 
@@ -47,7 +47,7 @@ impl<V> PatriciaTreeMap<V> {
         key & (1 << branch_bit) == 0
     }
 
-    #[duplicate(
+    #[duplicate_item(
       method                     reference(type) as_ref(v);
       [find_insertion_point]     [& type]        [v.as_ref()];
       [find_insertion_point_mut] [&mut type]     [v.as_mut()];
